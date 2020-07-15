@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import SimpleStorageContract from "./contracts/SimpleStorage.json";
+import IUniswapV2Router02 from "./contracts/IUniswapV2Router02.json"
 import getWeb3 from "./getWeb3";
 
 import "./App.css";
@@ -40,8 +41,10 @@ class App extends Component {
       web3: null, 
       accounts: null, 
       contract: null,
+      uniswapContract: null,
     }
     this.runExample = this.runExample.bind(this)
+    this.getEstimatedETHforDAI = this.getEstimatedETHforDAI.bind(this)
   } 
 
   runExample = async () => {
@@ -57,22 +60,31 @@ class App extends Component {
     this.setState({ storageValue: response });
   };
 
+  getEstimatedETHforDAI = async () => {
+    const networkId = await this.state.web3.eth.net.getId();
+    // const deployedNetwork = IUniswapV2Router02.networks[networkId];
+    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
+      IUniswapV2Router02.abi,
+      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    );
+    const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(10, path).call()
+    console.log(result)
+    // await this.setState({
+    //   joinedGames: joinedGamesArrey
+    // })
+  }
+
   render() {
     if (!this.state.web3) {
       return <div>Loading Web3, accounts, and contract...</div>;
     }
     return (
       <div className="App">
-        <h1>Good to Go!</h1>
-        <p>Your Truffle Box is installed and ready.</p>
-        <h2>Smart Contract Example</h2>
-        <p>
-          If your contracts compiled and migrated successfully, below will show
-          a stored value of 5 (by default).
-        </p>
-        <p>
-          Try changing the value stored on <strong>line 40</strong> of App.js.
-        </p>
+          <button
+            onClick={this.getEstimatedETHforDAI}>
+            Create Game
+          </button>
         <div>The stored value is: {this.state.storageValue}</div>
       </div>
     );

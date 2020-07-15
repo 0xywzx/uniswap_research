@@ -1,15 +1,9 @@
-const SimpleStorage = artifacts.require("./SimpleStorage.sol");
+const JcamUniswap = artifacts.require("./JcamUniswap.sol");
 
-contract("SimpleStorage", accounts => {
-  it("...should store the value 89.", async () => {
-    const simpleStorageInstance = await SimpleStorage.deployed();
-
-    // Set value of 89
-    await simpleStorageInstance.set(89, { from: accounts[0] });
-
-    // Get stored value
-    const storedData = await simpleStorageInstance.get.call();
-
-    assert.equal(storedData, 89, "The value 89 was not stored.");
+contract("JcamUniswap", accounts => {
+  it("", async () => {
+    const jcamUniswapInstance = await JcamUniswap.deployed();
+    const result = await jcamUniswapInstance.getEstimatedETHforDAI(1, { from: accounts[0] });
+    console.log(result)
   });
 });
