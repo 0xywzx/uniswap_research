@@ -42,23 +42,14 @@ class App extends Component {
       accounts: null, 
       contract: null,
       uniswapContract: null,
+      value: '',
     }
-    this.runExample = this.runExample.bind(this)
     this.getEstimatedETHforDAI = this.getEstimatedETHforDAI.bind(this)
   } 
 
-  runExample = async () => {
-    const { accounts, contract } = this.state;
-
-    // Stores a given value, 5 by default.
-    await contract.methods.set(10).send({ from: accounts[0] });
-
-    // Get the value from the contract to prove it worked.
-    const response = await contract.methods.get().call();
-
-    // Update state with the result.
-    this.setState({ storageValue: response });
-  };
+  handleChange(event) {
+    this.setState({value: event.target.value});
+  }
 
   getEstimatedETHforDAI = async () => {
     const networkId = await this.state.web3.eth.net.getId();
@@ -68,11 +59,23 @@ class App extends Component {
       "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
     );
     const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(10, path).call()
+    
+    var amount = 1;
+    var amountToGet = (amount * 1e18).toString()
+    // var amount = new BN(amountToSend * 1e18).toString();
+    // 0.000000000000000001 = 1000000000000000000
+    // let decimals = this.state.web3.utils.toBN(18);
+    // this.state.web3.utils.toBN(1).pow(decimals)
+    
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, path).call()
     console.log(result)
-    // await this.setState({
-    //   joinedGames: joinedGamesArrey
-    // })
+    
+    var date = new Date();
+    var now = date.getTime();
+    const swap = await IUniswapV2Router02Instance.methods.swapETHForExactTokens(amountToGet, path, this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: result[0].toString() })
+    .once('receipt', async (receipt) => { 
+      console.log(receipt)
+    })
   }
 
   render() {
@@ -81,11 +84,14 @@ class App extends Component {
     }
     return (
       <div className="App">
+        <div>
+          <input type="number" value={this.state.value} onChange={this.handleChange} />
           <button
             onClick={this.getEstimatedETHforDAI}>
-            Create Game
+            swap
           </button>
-        <div>The stored value is: {this.state.storageValue}</div>
+          <div>The stored value is: {this.state.storageValue}</div>
+        </div>
       </div>
     );
   }
