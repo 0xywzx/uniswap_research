@@ -42,37 +42,79 @@ class App extends Component {
       accounts: null, 
       contract: null,
       uniswapContract: null,
-      value: '',
+      amountToGetDai: '',
+      amountToGetEth: '',
+      nessesaryAmountOfEth: '',
+      nessesaryAmountOfDai: ''
     }
-    this.getEstimatedETHforDAI = this.getEstimatedETHforDAI.bind(this)
+    this.handleChangeDaiInput = this.handleChangeDaiInput.bind(this)
+    this.handleChangeEthInput = this.handleChangeEthInput.bind(this)
+    this.swapETHtoDai = this.swapETHtoDai.bind(this)
   } 
 
-  handleChange(event) {
-    this.setState({value: event.target.value});
-  }
-
-  getEstimatedETHforDAI = async () => {
-    const networkId = await this.state.web3.eth.net.getId();
-    // const deployedNetwork = IUniswapV2Router02.networks[networkId];
+  handleChangeDaiInput = async (event) => {
+    this.setState({ amountToGetDai: event.target.value });
     const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
       IUniswapV2Router02.abi,
       "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
     );
     const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
-    
-    var amount = 1;
-    var amountToGet = (amount * 1e18).toString()
+    var amountToGetInWei = (event.target.value * 1e18 ).toString()
+
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, path).call()
+    this.setState({
+      nessesaryAmountOfEth: result[0]/1e18
+    });
+  }
+
+  handleChangeEthInput = async (event) => {
+    this.setState({ amountToGetEth: event.target.value });
+    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
+      IUniswapV2Router02.abi,
+      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    );
+    const path = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+    var amountToGetInWei = (event.target.value * 1e18 ).toString()
+
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, path).call()
+    console.log(result)
+    this.setState({
+      nessesaryAmountOfDai: result[0]/1e18
+    });
+  }
+
+  swapETHtoDai = async () => {
+    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
+      IUniswapV2Router02.abi,
+      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    );
+    const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+    var amountToGet = (this.state.amountToGetDai * 1e18).toString()
     // var amount = new BN(amountToSend * 1e18).toString();
     // 0.000000000000000001 = 1000000000000000000
     // let decimals = this.state.web3.utils.toBN(18);
     // this.state.web3.utils.toBN(1).pow(decimals)
-    
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, path).call()
-    console.log(result)
-    
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, path).call()    
     var date = new Date();
     var now = date.getTime();
-    const swap = await IUniswapV2Router02Instance.methods.swapETHForExactTokens(amountToGet, path, this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: result[0].toString() })
+    await IUniswapV2Router02Instance.methods.swapETHForExactTokens(amountToGet, path, this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: result[0].toString() })
+    .once('receipt', async (receipt) => { 
+      console.log(receipt)
+    })
+  }
+
+  swapDaitoETH = async () => {
+    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
+      IUniswapV2Router02.abi,
+      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    );
+    const pathForAmountsIn = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+    var amountToGet = (this.state.amountToGetEth * 1e18).toString()
+    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, pathForAmountsIn).call()
+    var date = new Date();
+    var now = date.getTime();
+    const pathForSwap = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+    await IUniswapV2Router02Instance.methods.swapTokensForExactETH(amountToGet, result[0].toString(), pathForSwap, this.state.accounts[0], now +15).send({ from: this.state.accounts[0] })
     .once('receipt', async (receipt) => { 
       console.log(receipt)
     })
@@ -85,12 +127,25 @@ class App extends Component {
     return (
       <div className="App">
         <div>
-          <input type="number" value={this.state.value} onChange={this.handleChange} />
+          <h2>ETH → DAI</h2>
+          <span>欲しいDAI</span>
+          <input type="number" name="amountToGetDai" onChange={this.handleChangeDaiInput} value={this.state.amountToGetDai} />
+          <span>必要なETH {this.state.nessesaryAmountOfEth}</span>
+          <br />
           <button
-            onClick={this.getEstimatedETHforDAI}>
+            onClick={this.swapETHtoDai}>
             swap
           </button>
-          <div>The stored value is: {this.state.storageValue}</div>
+          <h2>DAI → ETH</h2>
+          <p><a href="https://ropsten.etherscan.io/address/0xaD6D458402F60fD3Bd25163575031ACDce07538D#writeContract">ここで</a>必要になるDaiをapprove関数にてallowancesする（単位は x1e18）</p>
+          <span>欲しいETH</span>
+          <input type="number" name="amountToGetEth" onChange={this.handleChangeEthInput} value={this.state.amountToGetEth} />
+          <span>必要なDai {this.state.nessesaryAmountOfDai}</span>
+          <br />
+          <button
+            onClick={this.swapDaitoETH}>
+            swap
+          </button>
         </div>
       </div>
     );
