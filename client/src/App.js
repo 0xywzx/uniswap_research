@@ -3,8 +3,12 @@ import SimpleStorageContract from "./contracts/SimpleStorage.json";
 import IUniswapV2Router02 from "./contracts/IUniswapV2Router02.json";
 import IUniswapV2Pair from "./contracts/IUniswapV2Pair.json"
 import getWeb3 from "./getWeb3";
-
 import "./App.css";
+
+const wethToDaiPath = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+const daiToWethPath = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"]
+const date = new Date();
+const now = date.getTime();
 
 class App extends Component {
 
@@ -23,10 +27,28 @@ class App extends Component {
         SimpleStorageContract.abi,
         deployedNetwork && deployedNetwork.address,
       );
+      
+      // UniswapV2Router02 のインスタンスの作成
+      const IUniswapV2Router02Instance = new web3.eth.Contract(
+        IUniswapV2Router02.abi,
+        "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      );
+
+      // UniswapV2Pair（Dai-Ethのペア） のインスタンスの作成
+      const IUniswapV2PairInstance = new web3.eth.Contract(
+        IUniswapV2Pair.abi,
+        "0x1c5DEe94a34D795f9EEeF830B68B80e44868d316", // Dai-Eth Pair のコントラクトアドレス
+      );
 
       // Set web3, accounts, and contract to the state, and then proceed with an
       // example of interacting with the contract's methods.
-      this.setState({ web3, accounts, contract: instance });
+      this.setState({ 
+        web3, 
+        accounts, 
+        contract: instance,
+        IUniswapV2Router02Instance,
+        IUniswapV2PairInstance
+      });
     } catch (error) {
       // Catch any errors for any of the above operations.
       alert(
@@ -43,6 +65,8 @@ class App extends Component {
       accounts: null, 
       contract: null,
       uniswapContract: null,
+      IUniswapV2Router02: null,
+      IUniswapV2PairInstance: null,
       amountToGetDai: '',
       amountToGetEth: '',
       nessesaryAmountOfEth: '',
@@ -58,31 +82,25 @@ class App extends Component {
 
   handleChangeDaiInput = async (event) => {
     this.setState({ amountToGetDai: event.target.value });
-    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
-      IUniswapV2Router02.abi,
-      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    );
-    const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
+
+    // 入力された数値をWeiに変更
     var amountToGetInWei = (event.target.value * 1e18 ).toString()
 
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, path).call()
+    const result = await this.state.IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, wethToDaiPath).call()
     this.setState({
       nessesaryAmountOfEth: result[0]/1e18
     });
   }
 
-  swapDaitoETH = async () => {
-    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
-      IUniswapV2Router02.abi,
-      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    );
-    const pathForAmountsIn = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
-    var amountToGet = (this.state.amountToGetEth * 1e18).toString()
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, pathForAmountsIn).call()
-    var date = new Date();
-    var now = date.getTime();
-    const pathForSwap = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
-    await IUniswapV2Router02Instance.methods.swapTokensForExactETH(amountToGet, result[0].toString(), pathForSwap, this.state.accounts[0], now +15).send({ from: this.state.accounts[0] })
+  swapETHtoDai = async () => {
+    var amountToGet = (this.state.amountToGetDai * 1e18).toString()
+    // BigNumberとか使った方がいいのかなと思いつつ、、、
+    // var amount = new BN(amountToSend * 1e18).toString();
+    // 0.000000000000000001 = 1000000000000000000
+    // let decimals = this.state.web3.utils.toBN(18);
+    // this.state.web3.utils.toBN(1).pow(decimals)
+    const result = await this.state.IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, wethToDaiPath).call()    
+    await this.state.IUniswapV2Router02Instance.methods.swapETHForExactTokens(amountToGet, wethToDaiPath, this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: result[0].toString() })
     .once('receipt', async (receipt) => { 
       console.log(receipt)
     })
@@ -90,35 +108,19 @@ class App extends Component {
 
   handleChangeEthInput = async (event) => {
     this.setState({ amountToGetEth: event.target.value });
-    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
-      IUniswapV2Router02.abi,
-      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    );
-    const path = ["0xaD6D458402F60fD3Bd25163575031ACDce07538D", "0xc778417e063141139fce010982780140aa0cd5ab"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
     var amountToGetInWei = (event.target.value * 1e18 ).toString()
 
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, path).call()
+    const result = await this.state.IUniswapV2Router02Instance.methods.getAmountsIn(amountToGetInWei, daiToWethPath).call()
     console.log(result)
     this.setState({
       nessesaryAmountOfDai: result[0]/1e18
     });
   }
 
-  swapETHtoDai = async () => {
-    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
-      IUniswapV2Router02.abi,
-      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    );
-    const path = ["0xc778417e063141139fce010982780140aa0cd5ab", "0xaD6D458402F60fD3Bd25163575031ACDce07538D"] // Mainnet Eth/Dai pair ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", "0x6b175474e89094c44da98b954eedeac495271d0f"]
-    var amountToGet = (this.state.amountToGetDai * 1e18).toString()
-    // var amount = new BN(amountToSend * 1e18).toString();
-    // 0.000000000000000001 = 1000000000000000000
-    // let decimals = this.state.web3.utils.toBN(18);
-    // this.state.web3.utils.toBN(1).pow(decimals)
-    const result = await IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, path).call()    
-    var date = new Date();
-    var now = date.getTime();
-    await IUniswapV2Router02Instance.methods.swapETHForExactTokens(amountToGet, path, this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: result[0].toString() })
+  swapDaitoETH = async () => {
+    var amountToGet = (this.state.amountToGetEth * 1e18).toString()
+    const result = await this.state.IUniswapV2Router02Instance.methods.getAmountsIn(amountToGet, daiToWethPath).call()
+    await this.state.IUniswapV2Router02Instance.methods.swapTokensForExactETH(amountToGet, result[0].toString(), daiToWethPath, this.state.accounts[0], now +15).send({ from: this.state.accounts[0] })
     .once('receipt', async (receipt) => { 
       console.log(receipt)
     })
@@ -126,30 +128,15 @@ class App extends Component {
 
   handleCalculateDaiAmountToAddLiquidity = async (event) => {
     this.setState({ amountToAddLiquidityEth: event.target.value });
-    const IUniswapV2PairInstance = new this.state.web3.eth.Contract(
-      IUniswapV2Pair.abi,
-      "0x1c5DEe94a34D795f9EEeF830B68B80e44868d316", // Dai-Eth Pair のコントラクトアドレス
-    );
-    const result = await IUniswapV2PairInstance.methods.getReserves().call()
-    console.log(result)
+    const result = await this.state.IUniswapV2PairInstance.methods.getReserves().call()
     this.setState({
       amountToAddLiquidityDai: (result[0]/result[1])*this.state.amountToAddLiquidityEth
     });
   }
 
   addLiquidityETH = async () => {
-    const IUniswapV2PairInstance = new this.state.web3.eth.Contract(
-      IUniswapV2Pair.abi,
-      "0x1c5DEe94a34D795f9EEeF830B68B80e44868d316", // Dai-Eth Pair のコントラクトアドレス
-    );
-    const result = await IUniswapV2PairInstance.methods.getReserves().call()
-    var date = new Date();
-    var now = date.getTime();
-    const IUniswapV2Router02Instance = new this.state.web3.eth.Contract(
-      IUniswapV2Router02.abi,
-      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    );
-    await IUniswapV2Router02Instance.methods.addLiquidityETH("0xaD6D458402F60fD3Bd25163575031ACDce07538D", ((result[0]/result[1]*1e18)*this.state.amountToAddLiquidityEth).toString(), ((result[0]/result[1]*1e18*0.99)*this.state.amountToAddLiquidityEth).toString(), (this.state.amountToAddLiquidityEth*1e18*0.99).toString(), this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: (this.state.amountToAddLiquidityEth * 1e18).toString() })
+    const result = await this.state.IUniswapV2PairInstance.methods.getReserves().call()
+    await this.state.IUniswapV2Router02Instance.methods.addLiquidityETH("0xaD6D458402F60fD3Bd25163575031ACDce07538D", ((result[0]/result[1]*1e18)*this.state.amountToAddLiquidityEth).toString(), ((result[0]/result[1]*1e18*0.99)*this.state.amountToAddLiquidityEth).toString(), (this.state.amountToAddLiquidityEth*1e18*0.99).toString(), this.state.accounts[0], now +15).send({ from: this.state.accounts[0], value: (this.state.amountToAddLiquidityEth * 1e18).toString() })
     .once('receipt', async (receipt) => { 
       console.log(receipt)
     })
@@ -172,7 +159,8 @@ class App extends Component {
             swap
           </button>
           <h2>DAI → ETH</h2>
-          <p><a href="https://ropsten.etherscan.io/address/0xaD6D458402F60fD3Bd25163575031ACDce07538D#writeContract">ここで</a>必要になるDaiをapprove関数にてallowanceする（単位は x 1e18）</p>
+          <p><a href="https://ropsten.etherscan.io/address/0xaD6D458402F60fD3Bd25163575031ACDce07538D#writeContract">ここで</a>必要になるDaiをapprove関数にてallowanceする（単位は 必要なDai x 1e18 ex. 1Dai = 1000000000000000000 ）</p>
+          <p>spenderのアドレスは”0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D”</p>
           <span>欲しいETH</span>
           <input type="number" name="amountToGetEth" onChange={this.handleChangeEthInput} value={this.state.amountToGetEth} />
           <span>必要なDai {this.state.nessesaryAmountOfDai}</span>
@@ -184,8 +172,8 @@ class App extends Component {
           <br />
           <h2>流動性供給</h2>
           <div>
-            <input type="number" name="amountToAddLiquidityEth" onChange={this.handleCalculateDaiAmountToAddLiquidity} value={this.state.amountToAddLiquidityEth} />
-            <span>必要なDai {this.state.amountToAddLiquidityDai}</span>
+            <input type="number" name="amountToAddLiquidityEth" onChange={this.handleCalculateDaiAmountToAddLiquidity} value={this.state.amountToAddLiquidityEth} />ETH 
+            <span> 必要なDai {this.state.amountToAddLiquidityDai}</span>
           </div>
           <button
             onClick={this.addLiquidityETH}>
